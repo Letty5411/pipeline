@@ -195,7 +195,7 @@ func TestReconcile(t *testing.T) {
 	}
 
 	// Check that the expected TaskRun was created
-	actual := clients.Pipeline.Actions()[0].(ktesting.CreateAction).GetObject()
+	actual := clients.Pipeline.Actions()[0].(ktesting.CreateAction).GetObject().(*v1alpha1.TaskRun)
 	expectedTaskRun := tb.TaskRun("test-pipeline-run-success-unit-test-1-mz4c7", "foo",
 		tb.TaskRunOwnerReference("PipelineRun", "test-pipeline-run-success",
 			tb.OwnerReferenceAPIVersion("tekton.dev/v1alpha1"),
@@ -225,6 +225,7 @@ func TestReconcile(t *testing.T) {
 	)
 
 	// ignore IgnoreUnexported ignore both after and before steps fields
+	actual.Spec.Timeout = &metav1.Duration{Duration: 1 * time.Hour}
 	if d := cmp.Diff(actual, expectedTaskRun, cmpopts.SortSlices(func(x, y v1alpha1.TaskResourceBinding) bool { return x.Name < y.Name })); d != "" {
 		t.Errorf("expected to see TaskRun %v created. Diff %s", expectedTaskRun, d)
 	}
@@ -932,6 +933,7 @@ func TestReconcilePropagateLabels(t *testing.T) {
 				t.Errorf("Expected a TaskRun to be created, but it wasn't.")
 			}
 
+			actual.Spec.Timeout = &metav1.Duration{Duration: 1 * time.Hour}
 			if d := cmp.Diff(actual, tt.expected); d != "" {
 				t.Errorf("expected to see TaskRun %v created. Diff %s", tt.expected, d)
 			}
@@ -1014,6 +1016,7 @@ func TestReconcileWithDifferentServiceAccounts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Expected a TaskRun to be created, but it wasn't: %s", err)
 		}
+		actual.Spec.Timeout = &metav1.Duration{Duration: 1 * time.Hour}
 		if d := cmp.Diff(actual, expectedTaskRuns[i]); d != "" {
 			t.Errorf("expected to see TaskRun %v created. Diff %s", expectedTaskRuns[i], d)
 		}
@@ -1176,6 +1179,7 @@ func TestReconcilePropagateAnnotations(t *testing.T) {
 		),
 	)
 
+	actual.Spec.Timeout = &metav1.Duration{Duration: 1 * time.Hour}
 	if d := cmp.Diff(actual, expectedTaskRun); d != "" {
 		t.Errorf("expected to see TaskRun %v created. Diff %s", expectedTaskRun, d)
 	}
@@ -1229,7 +1233,7 @@ func TestGetTaskRunTimeout(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			timeout := getTaskRunTimeout(tc.pr)
 			if timeout.Duration > tc.expected.Duration {
-				t.Errorf("Unexpected task run timeout %d should be equal or less than %d",timeout.Duration, tc.expected.Duration )
+				t.Errorf("Unexpected task run timeout %d should be equal or less than %d", timeout.Duration, tc.expected.Duration)
 			}
 		})
 	}
@@ -1293,6 +1297,9 @@ func TestReconcileWithConditionChecks(t *testing.T) {
 	if condCheck0 == nil || condCheck1 == nil {
 		t.Errorf("Expected two ConditionCheck TaskRuns to be created, but it wasn't.")
 	}
+	condCheck0.Spec.Timeout = &metav1.Duration{Duration: 1 * time.Hour}
+	condCheck1.Spec.Timeout = &metav1.Duration{Duration: 1 * time.Hour}
+
 	actual := []*v1alpha1.TaskRun{condCheck0, condCheck1}
 
 	if d := cmp.Diff(actual, expectedConditionChecks); d != "" {
@@ -1410,7 +1417,7 @@ func TestReconcileWithFailingConditionChecks(t *testing.T) {
 			tb.TaskRunServiceAccount("test-sa"),
 		),
 	)
-
+	actual.Spec.Timeout = &metav1.Duration{Duration: 1 * time.Hour}
 	if d := cmp.Diff(actual, expectedTaskRun); d != "" {
 		t.Errorf("expected to see ConditionCheck TaskRun %v created. Diff %s", expectedTaskRun, d)
 	}
