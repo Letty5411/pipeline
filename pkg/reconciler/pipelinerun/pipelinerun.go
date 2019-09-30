@@ -562,19 +562,19 @@ func getTaskRunTimeout(pr *v1alpha1.PipelineRun) *metav1.Duration {
 	if pr.Spec.Timeout == nil {
 		timeout = config.DefaultTimeoutMinutes * time.Minute
 	} else {
-		timeout = pr.Spec.Timeout.Duration
+		if pr.Status.StartTime == nil {
+			timeout = pr.Spec.Timeout.Duration
+		} else {
+			// timeout of a taskrun should use the left timeout of the pipelinerun
+			timePassedInPipelienrun := time.Since(pr.Status.StartTime.Time)
+			timeout = pr.Spec.Timeout.Duration - timePassedInPipelienrun
+		}
 	}
 	// If the value of the timeout is 0 for any resource, there is no timeout.
 	// It is impossible for pr.Spec.Timeout to be nil, since SetDefault always assigns it with a value.
 	if timeout != apisconfig.NoTimeoutDuration {
-		pTimeoutTime := pr.Status.StartTime.Add(timeout)
-		if time.Now().After(pTimeoutTime) {
-			// Just in case something goes awry and we're creating the TaskRun after it should have already timed out,
-			// set the timeout to 1 second.
-			taskRunTimeout = &metav1.Duration{Duration: time.Until(pTimeoutTime)}
-			if taskRunTimeout.Duration < 0 {
-				taskRunTimeout = &metav1.Duration{Duration: 1 * time.Second}
-			}
+		if timeout < 0 {
+			taskRunTimeout = &metav1.Duration{Duration: 1 * time.Second}
 		} else {
 			taskRunTimeout = &metav1.Duration{Duration: timeout}
 		}

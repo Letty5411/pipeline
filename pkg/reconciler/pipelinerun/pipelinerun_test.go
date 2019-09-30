@@ -1210,19 +1210,26 @@ func TestGetTaskRunTimeout(t *testing.T) {
 			tb.PipelineRunSpec(p, tb.PipelineRunTimeout(0*time.Minute)),
 			tb.PipelineRunStatus(tb.PipelineRunStartTime(time.Now())),
 		),
-		expected: &metav1.Duration{Duration: 0 * time.Minute},
+		expected: &metav1.Duration{Duration: 1 * time.Second},
 	}, {
 		name: "taskrun being created after timeout expired",
 		pr: tb.PipelineRun(prName, ns,
 			tb.PipelineRunSpec(p, tb.PipelineRunTimeout(1*time.Minute)),
 			tb.PipelineRunStatus(tb.PipelineRunStartTime(time.Now().Add(-2*time.Minute)))),
 		expected: &metav1.Duration{Duration: 1 * time.Second},
+	}, {
+		name: "taskrun being created after pipelinerun started 10s",
+		pr: tb.PipelineRun(prName, ns,
+			tb.PipelineRunSpec(p, tb.PipelineRunTimeout(2*time.Minute)),
+			tb.PipelineRunStatus(tb.PipelineRunStartTime(time.Now().Add(-1*time.Minute)))),
+		expected: &metav1.Duration{Duration: 1 * time.Minute},
 	}}
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			if d := cmp.Diff(getTaskRunTimeout(tc.pr), tc.expected); d != "" {
-				t.Errorf("Unexpected task run timeout. Diff %s", d)
+			timeout := getTaskRunTimeout(tc.pr)
+			if timeout.Duration > tc.expected.Duration {
+				t.Errorf("Unexpected task run timeout %d should be equal or less than %d",timeout.Duration, tc.expected.Duration )
 			}
 		})
 	}
@@ -1286,8 +1293,8 @@ func TestReconcileWithConditionChecks(t *testing.T) {
 	if condCheck0 == nil || condCheck1 == nil {
 		t.Errorf("Expected two ConditionCheck TaskRuns to be created, but it wasn't.")
 	}
-
 	actual := []*v1alpha1.TaskRun{condCheck0, condCheck1}
+
 	if d := cmp.Diff(actual, expectedConditionChecks); d != "" {
 		t.Errorf("expected to see 2 ConditionCheck TaskRuns created. Diff %s", d)
 	}
